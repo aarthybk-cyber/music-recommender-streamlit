@@ -1,90 +1,130 @@
+import os
 
-import streamlit as st
 import pandas as pd
+import streamlit as st
 from sklearn.metrics.pairwise import cosine_similarity
 
-st.set_page_config(layout="wide")
-st.title('Music Recommendation System')
+st.set_page_config(page_title="Music Recommendation System", layout="wide")
+st.title("Music Recommendation System")
 
-# --- Data Loading (Simulate from your previous steps) ---
-# In a real deployment, you might load this from a database or a pre-processed file
-@st.cache_data # Cache the data loading to improve performance
-def load_data():
-    # Assuming the same path as in your notebook
-    df = pd.read_csv("/content/drive/MyDrive/Colab Notebooks/Assignments/Recommendation system/assignment_music_data_1.csv")
-    user_artist_df = df.pivot_table(index='user', columns='artist', values='plays').fillna(0)
+DATA_FILE = "assignment_music_data_1.csv"
+
+
+# --- Data loading -----------------------------------------------------------
+@st.cache_data
+def load_data(source):
+    """Read the ratings file and build a user x artist play-count matrix."""
+    df = pd.read_csv(source)
+
+    required = {"user", "artist", "plays"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"CSV is missing required column(s): {', '.join(sorted(missing))}")
+
+    df = df.dropna(subset=["user", "artist"])
+    df["plays"] = pd.to_numeric(df["plays"], errors="coerce").fillna(0)
+
+    user_artist_df = df.pivot_table(
+        index="user", columns="artist", values="plays", aggfunc="sum", fill_value=0
+    )
     return df, user_artist_df
 
-df, user_artist_df = load_data()
 
-# --- Recommendation Logic (from your notebook) ---
-def get_collaborative_recommendations(target_user_id, user_artist_matrix, num_similar_users=3, num_recommendations=5):
-    # Select the profile for the target user
-    target_user_profile = user_artist_matrix.loc[target_user_id].values.reshape(1, -1)
+def get_data():
+    """Load from the repo if the CSV is committed, otherwise ask for an upload."""
+    if os.path.exists(DATA_FILE):
+        return load_data(DATA_FILE)
 
-    # Calculate cosine similarity between target user and all other users
-    similarities = cosine_similarity(target_user_profile, user_artist_matrix)
-    similarity_series = pd.Series(similarities[0], index=user_artist_matrix.index)
+    st.info(
+        f"`{DATA_FILE}` isn't in the app directory. Upload it below, "
+        "or commit it to the repository to load it automatically."
+    )
+    uploaded = st.file_uploader("Upload the listening-history CSV", type="csv")
+    if uploaded is None:
+        st.stop()
+    return load_data(uploaded)
 
-    # Remove the target user itself from the similarity list
-    similarity_series = similarity_series.drop(target_user_id, errors='ignore')
 
-    # Get the top N most similar users
-    top_similar_users = similarity_series.nlargest(num_similar_users)
+try:
+    df, user_artist_df = get_data()
+except ValueError as err:
+    st.error(str(err))
+    st.stop()
 
-    # Get artists played by the target user
-    target_user_played_artists = user_artist_matrix.loc[target_user_id][user_artist_matrix.loc[target_user_id] > 0].index
 
-    # Get the profiles of these similar users
-    similar_users_profiles = user_artist_matrix.loc[top_similar_users.index]
-
-    # Aggregate plays for artists from similar users
-    similar_users_artist_plays = similar_users_profiles.sum()
-
-    # Remove artists already played by the target user
-    recommendations = similar_users_artist_plays.drop(labels=target_user_played_artists, errors='ignore')
-
-    # Get the top N recommendations
-    final_recommendations = recommendations.nlargest(num_recommendations)
-    return final_recommendations
-
+# --- Recommendation logic ---------------------------------------------------
 def get_popularity_recommendations(df, num_recommendations=5):
-    top_artists = df.groupby('artist')['plays'].sum().nlargest(num_recommendations)
-    return top_artists
+    return df.groupby("artist")["plays"].sum().nlargest(num_recommendations)
 
-# --- Streamlit UI ---
-st.sidebar.header('Choose a Recommendation Type')
+
+def get_collaborative_recommendations(
+    target_user_id, user_artist_matrix, num_similar_users=3, num_recommendations=5
+):
+    target_profile = user_artist_matrix.loc[target_user_id].values.reshape(1, -1)
+
+    similarities = cosine_similarity(target_profile, user_artist_matrix)[0]
+    similarity_series = pd.Series(similarities, index=user_artist_matrix.index)
+    similarity_series = similarity_series.drop(target_user_id, errors="ignore")
+
+    # Ignore users with no overlap at all.
+    similarity_series = similarity_series[similarity_series > 0]
+    if similarity_series.empty:
+        return pd.Series(dtype=float)
+
+    top_similar = similarity_series.nlargest(num_similar_users)
+
+    # Weight each neighbour's play counts by how similar they are, so a heavy
+    # listener with a loosely matching profile doesn't drown out a close match.
+    neighbour_profiles = user_artist_matrix.loc[top_similar.index]
+    weighted_scores = neighbour_profiles.mul(top_similar, axis=0).sum()
+
+    target_row = user_artist_matrix.loc[target_user_id]
+    already_played = target_row[target_row > 0].index
+    recommendations = weighted_scores.drop(labels=already_played, errors="ignore")
+    recommendations = recommendations[recommendations > 0]
+
+    return recommendations.nlargest(num_recommendations)
+
+
+# --- UI ---------------------------------------------------------------------
+st.sidebar.header("Choose a Recommendation Type")
 recommendation_type = st.sidebar.radio(
     "Select a type of recommendation:",
-    ('Popularity-Based', 'Collaborative Filtering')
+    ("Popularity-Based", "Collaborative Filtering"),
 )
+num_recommendations = st.sidebar.slider("Number of recommendations", 3, 20, 5)
 
-if recommendation_type == 'Popularity-Based':
-    st.subheader('Top 5 Most Popular Artists (For New Users)')
-    popular_recs = get_popularity_recommendations(df, 5)
-    st.write(popular_recs)
-    st.markdown("""
-    *Ideal for new users with no listening history.*
-    """)
-elif recommendation_type == 'Collaborative Filtering':
-    st.subheader('Personalized Recommendations based on Similar Users')
+if recommendation_type == "Popularity-Based":
+    st.subheader(f"Top {num_recommendations} Most Popular Artists")
+    popular_recs = get_popularity_recommendations(df, num_recommendations)
+    st.bar_chart(popular_recs)
+    st.dataframe(popular_recs.rename("total plays"))
+    st.caption("Ideal for new users with no listening history.")
 
-    all_users = user_artist_df.index.tolist()
-    selected_user = st.selectbox(
-        'Select a User ID:',
-        all_users
-    )
+else:
+    st.subheader("Personalized Recommendations Based on Similar Users")
+    selected_user = st.selectbox("Select a User ID:", user_artist_df.index.tolist())
 
     if selected_user:
-        st.write(f"Recommendations for {selected_user}:")
-        personalized_recs = get_collaborative_recommendations(selected_user, user_artist_df)
-        st.write(personalized_recs)
-        st.markdown("""
-        *Based on what users with similar tastes have listened to.*
-        """)
+        recs = get_collaborative_recommendations(
+            selected_user, user_artist_df, num_recommendations=num_recommendations
+        )
+        if recs.empty:
+            st.warning(
+                "No recommendations available for this user — they have either no "
+                "listening history or no overlap with anyone else."
+            )
+        else:
+            st.write(f"Recommendations for **{selected_user}**:")
+            st.dataframe(recs.rename("recommendation score"))
+        st.caption("Based on what users with similar tastes have listened to.")
 
-st.markdown("""
-### How it works:
-- **Popularity-Based**: Recommends the artists with the highest total plays across all users. Useful for cold-start scenarios.
-- **Collaborative Filtering**: Finds users with similar listening patterns to the selected user and suggests artists that those similar users enjoy but the selected user hasn't heard yet.
-""")
+st.markdown(
+    """
+### How it works
+- **Popularity-Based** — ranks artists by total plays across all users. Useful for cold starts.
+- **Collaborative Filtering** — finds the users whose listening patterns are closest to the
+  selected user, then suggests artists those neighbours play that the selected user hasn't heard.
+  Each neighbour's plays are weighted by their similarity score.
+"""
+)
