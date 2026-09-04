@@ -20,17 +20,17 @@ STYLES = """
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;800&display=swap');
 
 .stApp {
-    background: #101F1C;
-    color: #E9EFEB;
+    background: #F4F6F5;
+    color: #16211E;
     font-family: 'Archivo', system-ui, sans-serif;
 }
 
 [data-testid="stSidebar"] {
-    background: #0B1614;
-    border-right: 1px solid #233833;
+    background: #EDF1EF;
+    border-right: 1px solid #D5DDD9;
 }
 
-[data-testid="stSidebar"] * { color: #E9EFEB; }
+[data-testid="stSidebar"] * { color: #16211E; }
 
 .masthead { padding: 0.5rem 0 1.75rem; }
 
@@ -41,7 +41,7 @@ STYLES = """
     line-height: 1.02;
     letter-spacing: -0.035em;
     margin: 0;
-    color: #E9EFEB;
+    color: #16211E;
 }
 
 .masthead p {
@@ -49,7 +49,7 @@ STYLES = """
     max-width: 54ch;
     font-size: 0.95rem;
     line-height: 1.55;
-    color: #8CA39B;
+    color: #5F736C;
 }
 
 .section-head {
@@ -57,7 +57,7 @@ STYLES = """
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    border-bottom: 1px solid #233833;
+    border-bottom: 1px solid #D5DDD9;
     padding-bottom: 0.5rem;
     margin-bottom: 0.25rem;
 }
@@ -67,10 +67,10 @@ STYLES = """
     font-weight: 500;
     letter-spacing: -0.01em;
     margin: 0;
-    color: #E9EFEB;
+    color: #16211E;
 }
 
-.section-head span { font-size: 0.8rem; color: #8CA39B; }
+.section-head span { font-size: 0.8rem; color: #5F736C; }
 
 ol.chart { list-style: none; margin: 0; padding: 0; }
 
@@ -80,7 +80,7 @@ ol.chart li {
     align-items: center;
     gap: 0 1rem;
     padding: 0.85rem 0;
-    border-bottom: 1px solid #1B2E2A;
+    border-bottom: 1px solid #E2E8E5;
 }
 
 .rank {
@@ -88,7 +88,7 @@ ol.chart li {
     font-size: 1.5rem;
     line-height: 1;
     font-variant-numeric: tabular-nums;
-    color: #E0B15C;
+    color: #A66A11;
     text-align: right;
 }
 
@@ -104,7 +104,7 @@ ol.chart li {
 .track {
     display: block;
     height: 5px;
-    background: #1E332E;
+    background: #E2E8E5;
     border-radius: 3px;
     overflow: hidden;
 }
@@ -112,7 +112,7 @@ ol.chart li {
 .fill {
     display: block;
     height: 100%;
-    background: #E0B15C;
+    background: #A66A11;
     border-radius: 3px;
     transform-origin: left center;
     animation: grow 420ms cubic-bezier(0.2, 0.7, 0.3, 1);
@@ -127,29 +127,29 @@ ol.chart li {
 .value {
     font-variant-numeric: tabular-nums;
     font-size: 0.9rem;
-    color: #8CA39B;
+    color: #5F736C;
     white-space: nowrap;
 }
 
 .neighbours {
     margin: 1.5rem 0 0;
     padding: 0.9rem 1.1rem;
-    background: #172A26;
+    background: #EBEFED;
     border-radius: 8px;
     font-size: 0.87rem;
-    color: #8CA39B;
+    color: #5F736C;
     line-height: 1.7;
 }
 
-.neighbours b { color: #E9EFEB; font-weight: 500; }
+.neighbours b { color: #16211E; font-weight: 500; }
 
 .footnote {
     margin-top: 2.5rem;
     padding-top: 1.1rem;
-    border-top: 1px solid #233833;
+    border-top: 1px solid #D5DDD9;
     font-size: 0.85rem;
     line-height: 1.65;
-    color: #8CA39B;
+    color: #5F736C;
     max-width: 62ch;
 }
 
@@ -284,7 +284,7 @@ if mode == "Picked for a listener":
     neighbour_count = st.sidebar.slider("Listeners to compare against", 1, 10, 3)
 
 st.sidebar.markdown(
-    '<p style="font-size:0.8rem;color:#8CA39B;margin-top:1.5rem;line-height:1.6;">'
+    '<p style="font-size:0.8rem;color:#5F736C;margin-top:1.5rem;line-height:1.6;">'
     f"{len(user_artist_df):,} listeners &middot; {user_artist_df.shape[1]:,} artists "
     f"&middot; {df['plays'].sum():,.0f} plays</p>",
     unsafe_allow_html=True,
